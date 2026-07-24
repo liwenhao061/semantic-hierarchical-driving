@@ -204,4 +204,15 @@ The code is under cleaning and will be released gradually.
 
 ## Citation
 
-Citation coming soon.
+If you find this repository useful, please cite our work:
+
+```bibtex
+@unpublished{li2026semantics,
+  title  = {Semantics-Guided Hierarchical Decision-Making for Autonomous Driving via {LLM}-Assisted Reinforcement Learning},
+  author = {Li, Wenhao and Wang, Tao and Hu, Songhua},
+  note   = {Manuscript under review at Transportation Research Part C: Emerging Technologies},
+  year   = {2026}
+}
+```
+
+The citation metadata will be updated with the DOI, volume, and page numbers after publication.
