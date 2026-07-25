@@ -231,10 +231,9 @@ class TeacherRolloutCollector:
 
             student_traj = out_student.get("trajectory")
             student_prob = out_student.get("probability")
-            student_hidden = (
-                out_student.get("hidden")
-                or out_student.get("moe_hidden")
-            )
+            student_hidden = out_student.get("hidden")
+            if student_hidden is None:
+                student_hidden = out_student.get("moe_hidden")
 
             if student_traj is None or student_hidden is None:
                 continue
@@ -289,7 +288,9 @@ class TeacherRolloutCollector:
             losses.append(traj_loss + 0.5 * prob_loss + 0.3 * hidden_loss)
 
         if not losses:
-            return torch.tensor(0.0, requires_grad=True)
+            return torch.tensor(
+                0.0, device=self.device, requires_grad=True
+            )
 
         return torch.stack(losses).mean()
 

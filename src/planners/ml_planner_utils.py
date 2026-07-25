@@ -57,5 +57,22 @@ def global_trajectory_to_states(
 
 def load_checkpoint(checkpoint: str):
     ckpt = torch.load(checkpoint, map_location=torch.device("cpu"))
-    state_dict = {k.replace("model.", ""): v for k, v in ckpt["state_dict"].items()}
-    return state_dict
+    if "state_dict" in ckpt:
+        state_dict = ckpt["state_dict"]
+        model_state = {
+            key[len("model."):]: value
+            for key, value in state_dict.items()
+            if key.startswith("model.")
+        }
+        return model_state or state_dict
+
+    if "model_state_dict" in ckpt:
+        state_dict = ckpt["model_state_dict"]
+        base_model_state = {
+            key[len("base_model."):]: value
+            for key, value in state_dict.items()
+            if key.startswith("base_model.")
+        }
+        return base_model_state or state_dict
+
+    return ckpt

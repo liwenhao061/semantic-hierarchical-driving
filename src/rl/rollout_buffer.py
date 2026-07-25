@@ -249,10 +249,12 @@ class RolloutBuffer:
         batch_idx = torch.arange(self._bs, device=self.device).unsqueeze(0).expand(N, self._bs).reshape(flat_N)
 
         # Normalise advantages
-        adv_mean, adv_std = advantages.mean(), advantages.std().clamp(min=1e-8)
+        adv_mean = advantages.mean()
+        adv_std = advantages.std(unbiased=False).clamp(min=1e-8)
         advantages = (advantages - adv_mean) / adv_std
 
-        c_adv_mean, c_adv_std = cost_advantages.mean(), cost_advantages.std().clamp(min=1e-8)
+        c_adv_mean = cost_advantages.mean()
+        c_adv_std = cost_advantages.std(unbiased=False).clamp(min=1e-8)
         cost_advantages = (cost_advantages - c_adv_mean) / c_adv_std
 
         if shuffle:

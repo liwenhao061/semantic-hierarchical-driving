@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 from pathlib import Path
@@ -34,6 +35,8 @@ from ..post_processing.emergency_brake import EmergencyBrake
 from ..post_processing.trajectory_evaluator import TrajectoryEvaluator
 from ..scenario_manager.scenario_manager import ScenarioManager
 from .ml_planner_utils import global_trajectory_to_states, load_checkpoint
+
+logger = logging.getLogger(__name__)
 
 
 class PlutoPlanner(AbstractPlanner):
@@ -121,7 +124,21 @@ class PlutoPlanner(AbstractPlanner):
         torch.set_grad_enabled(False)
 
         if self._planner_ckpt is not None:
-            self._planner.load_state_dict(load_checkpoint(self._planner_ckpt))
+            state_dict = load_checkpoint(self._planner_ckpt)
+            matched_keys = set(self._planner.state_dict()).intersection(state_dict)
+            if not matched_keys:
+                raise RuntimeError(
+                    "Checkpoint contains no parameters matching PlanningModel."
+                )
+            incompatible = self._planner.load_state_dict(
+                state_dict, strict=False
+            )
+            logger.info(
+                "Loaded %d planner tensors (%d missing, %d unexpected).",
+                len(matched_keys),
+                len(incompatible.missing_keys),
+                len(incompatible.unexpected_keys),
+            )
 
         self._planner.eval()
         self._planner = self._planner.to(self.device)

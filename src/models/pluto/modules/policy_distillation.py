@@ -77,8 +77,9 @@ class LightweightStudent(nn.Module):
 
 
 class LanguageBehaviorAlignmentLoss(nn.Module):
-    def __init__(self, dim=128, temperature=0.5):
+    def __init__(self, dim=128, behavior_dim=None, temperature=0.5):
         super().__init__()
+        behavior_dim = behavior_dim if behavior_dim is not None else dim
         self.dim = dim
         self.temperature = nn.Parameter(torch.tensor(temperature))
         
@@ -90,7 +91,7 @@ class LanguageBehaviorAlignmentLoss(nn.Module):
         )
         
         self.behavior_projector = nn.Sequential(
-            nn.Linear(dim, dim),
+            nn.Linear(behavior_dim, dim),
             nn.LayerNorm(dim),
             nn.ReLU(),
             nn.Linear(dim, dim)
@@ -139,7 +140,9 @@ class PolicyDistillation(nn.Module):
             num_modes=num_modes
         )
         
-        self.alignment_loss = LanguageBehaviorAlignmentLoss(teacher_dim)
+        self.alignment_loss = LanguageBehaviorAlignmentLoss(
+            teacher_dim, behavior_dim=student_dim
+        )
         
         self.hidden_adapter = nn.Sequential(
             nn.Linear(student_dim, teacher_dim),
@@ -148,20 +151,60 @@ class PolicyDistillation(nn.Module):
         )
         
     def compute_trajectory_distillation_loss(self, student_traj, teacher_traj, valid_mask):
-        loss = F.smooth_l1_loss(student_traj, teacher_traj, reduction='none')
+        if student_traj.shape != teacher_traj.shape:
+            raise ValueError(
+                "Trajectory shape mismatch: "
+                f"student={tuple(student_traj.shape)}, "
+                f"teacher={tuple(teacher_traj.shape)}"
+            )
+
+        loss = F.smooth_l1_loss(
+            student_traj, teacher_traj.detach(), reduction='none'
+        )
         loss = loss.sum(-1)
         
         if valid_mask is not None:
-            loss = (loss * valid_mask.unsqueeze(1).unsqueeze(1)).sum() / valid_mask.sum()
+            mask = valid_mask.to(dtype=loss.dtype)
+            while mask.dim() < loss.dim():
+                mask = mask.unsqueeze(1)
+            mask = mask.expand_as(loss)
+            loss = (loss * mask).sum() / mask.sum().clamp(min=1.0)
         else:
             loss = loss.mean()
         
         return loss
     
     def compute_probability_distillation_loss(self, student_prob, teacher_prob, temperature=2.0):
+        if student_prob.dim() != 2:
+            raise ValueError(
+                f"Expected student logits with shape (B, M), got {tuple(student_prob.shape)}"
+            )
+
+        if teacher_prob.dim() == 3:
+            bs, num_references, num_modes = teacher_prob.shape
+            teacher_soft = F.softmax(
+                teacher_prob.detach().reshape(bs, num_references * num_modes)
+                / temperature,
+                dim=-1,
+            ).reshape(bs, num_references, num_modes).sum(dim=1)
+        elif teacher_prob.dim() == 2:
+            teacher_soft = F.softmax(
+                teacher_prob.detach() / temperature, dim=-1
+            )
+        else:
+            raise ValueError(
+                "Expected teacher logits with shape (B, M) or (B, R, M), "
+                f"got {tuple(teacher_prob.shape)}"
+            )
+
+        if student_prob.shape != teacher_soft.shape:
+            raise ValueError(
+                "Probability mode mismatch after reference-line marginalization: "
+                f"student={tuple(student_prob.shape)}, "
+                f"teacher={tuple(teacher_soft.shape)}"
+            )
+
         student_soft = F.log_softmax(student_prob / temperature, dim=-1)
-        teacher_soft = F.softmax(teacher_prob / temperature, dim=-1)
-        
         kl_loss = F.kl_div(student_soft, teacher_soft, reduction='batchmean')
         
         return kl_loss * (temperature ** 2)
@@ -219,4 +262,3 @@ class PolicyDistillation(nn.Module):
             'student_traj': student_traj,
             'student_prob': student_prob
         }
-

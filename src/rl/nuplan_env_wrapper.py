@@ -74,6 +74,7 @@ class NuplanEnvWrapper:
     ----------
     future_steps   : number of future trajectory time-steps (default 80 = 8 s at 10 Hz)
     step_dt        : simulation time step in seconds
+    history_steps  : number of history frames, including the current frame
     reward_weights : dict overriding _DEFAULT_REWARD_WEIGHTS
     cost_weights   : dict overriding _DEFAULT_COST_WEIGHTS
     device         : torch device
@@ -83,6 +84,7 @@ class NuplanEnvWrapper:
         self,
         future_steps: int = 80,
         step_dt: float = 0.1,
+        history_steps: int = 21,
         reward_weights: Optional[Dict[str, float]] = None,
         cost_weights: Optional[Dict[str, float]] = None,
         device: Optional[torch.device] = None,
@@ -95,7 +97,7 @@ class NuplanEnvWrapper:
 
         # Episode state
         self._data: Optional[Dict] = None
-        self._history_steps: int = 21
+        self._history_steps: int = history_steps
         self._done: bool = True
 
     # ------------------------------------------------------------------
@@ -122,9 +124,6 @@ class NuplanEnvWrapper:
                     kk: (vv.to(self.device) if isinstance(vv, torch.Tensor) else vv)
                     for kk, vv in v.items()
                 }
-
-        if "agent" in data and "position" in data["agent"]:
-            self._history_steps = data["agent"]["position"].shape[2]
 
         self._done = False
         info = {"batch_size": self._batch_size()}

@@ -189,6 +189,10 @@ class ActorCriticWrapper(nn.Module):
     # Public API
     # ------------------------------------------------------------------
 
+    def forward(self, data: Dict) -> Dict:
+        """Delegate a standard forward pass to the wrapped planning model."""
+        return self.base_model(data)
+
     def act(
         self, data: Dict
     ) -> Dict:

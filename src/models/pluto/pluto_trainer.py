@@ -183,10 +183,14 @@ class LightningTrainer(pl.LightningModule):
         if self.training and self.use_llm_rl_fusion:
             if "moe_trajectory" in res and res["moe_trajectory"] is not None:
                 moe_traj = res["moe_trajectory"][:train_num, 0]
+                moe_target = target[:, 0, :, :moe_traj.shape[-1]]
                 moe_loss = F.smooth_l1_loss(
-                    moe_traj, target[:, 0], reduction='none'
+                    moe_traj, moe_target, reduction='none'
                 ).sum(-1)
-                moe_loss = (moe_loss * valid_mask[:, 0]).sum() / valid_mask[:, 0].sum()
+                moe_loss = (
+                    (moe_loss * valid_mask[:, 0]).sum()
+                    / valid_mask[:, 0].sum().clamp(min=1)
+                )
                 
                 moe_gates = res["moe_gates"][:train_num]
                 gate_entropy = -(moe_gates * torch.log(moe_gates + 1e-8)).sum(-1).mean()
@@ -234,11 +238,26 @@ class LightningTrainer(pl.LightningModule):
                     teacher_traj = trajectory[:train_num] if trajectory is not None else None
                 
                 if teacher_traj is not None:
+                    teacher_probability = (
+                        probability[:train_num]
+                        if probability is not None
+                        else torch.zeros(
+                            train_num, self.num_modes, device=teacher_traj.device
+                        )
+                    )
+                    reference_valid = data["reference_line"]["valid_mask"][:train_num]
+                    if (
+                        teacher_probability.dim() == 3
+                        and teacher_probability.shape[1] == reference_valid.shape[1]
+                    ):
+                        reference_padding = ~reference_valid.any(-1)
+                        teacher_probability = teacher_probability.masked_fill(
+                            reference_padding.unsqueeze(-1), -1e6
+                        )
+
                     teacher_outputs = {
                         'trajectory': teacher_traj,
-                        'probability': probability[:train_num] if probability is not None else torch.zeros(
-                            train_num, self.num_modes, device=teacher_traj.device
-                        ),
+                        'probability': teacher_probability,
                         'hidden': res.get("moe_hidden", res.get("hidden"))[:train_num]
                     }
                     

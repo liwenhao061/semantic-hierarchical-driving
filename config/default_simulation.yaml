@@ -6,7 +6,6 @@ hydra:
     - pkg://nuplan.planning.script.config.common
     - pkg://nuplan.planning.script.config.simulation
     - pkg://nuplan.planning.script.experiments                  # Put experiments configs in script/experiments/<exp_dir>
-    - config/simulation
     - config/scenario_filter
 
 defaults:

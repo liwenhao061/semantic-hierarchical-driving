@@ -6,8 +6,6 @@ py_func: rl_train
 objective_aggregate_mode: mean
 
 defaults:
-  - override /data_augmentation:
-      - contrastive_scenario_generator
   - override /splitter: nuplan
   - override /model: pluto_model
   - override /scenario_filter: training_scenarios_tiny

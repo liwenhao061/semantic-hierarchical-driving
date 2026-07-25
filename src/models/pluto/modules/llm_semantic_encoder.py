@@ -1,3 +1,5 @@
+from contextlib import nullcontext
+
 import torch
 import torch.nn as nn
 from transformers import AutoTokenizer, AutoModel
@@ -14,6 +16,7 @@ class LLMSemanticEncoder(nn.Module):
         super().__init__()
         self.dim = dim
         self.llm_dim = llm_dim
+        self.freeze_llm = freeze_llm
         
         self.tokenizer = AutoTokenizer.from_pretrained(llm_model_name)
         self.llm = AutoModel.from_pretrained(llm_model_name)
@@ -21,6 +24,7 @@ class LLMSemanticEncoder(nn.Module):
         if freeze_llm:
             for param in self.llm.parameters():
                 param.requires_grad = False
+            self.llm.eval()
         
         self.semantic_proj = nn.Sequential(
             nn.Linear(llm_dim, dim * 2),
@@ -29,6 +33,13 @@ class LLMSemanticEncoder(nn.Module):
             nn.Dropout(0.1),
             nn.Linear(dim * 2, dim)
         )
+
+    def train(self, mode=True):
+        """Keep the frozen language backbone deterministic during training."""
+        super().train(mode)
+        if self.freeze_llm:
+            self.llm.eval()
+        return self
         
     def forward(self, scenario_descriptions):
         if isinstance(scenario_descriptions, str):
@@ -42,7 +53,8 @@ class LLMSemanticEncoder(nn.Module):
             max_length=128
         ).to(next(self.llm.parameters()).device)
         
-        with torch.no_grad():
+        grad_context = torch.no_grad() if self.freeze_llm else nullcontext()
+        with grad_context:
             llm_outputs = self.llm(**tokens)
             embeddings = llm_outputs.last_hidden_state[:, 0]
         
@@ -89,4 +101,3 @@ class LLMSemanticEncoder(nn.Module):
             descriptions.append(desc)
         
         return descriptions
-

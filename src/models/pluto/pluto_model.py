@@ -3,7 +3,6 @@ import math
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from nuplan.planning.simulation.trajectory.trajectory_sampling import TrajectorySampling
 from nuplan.planning.training.modeling.torch_module_wrapper import TorchModuleWrapper
 from nuplan.planning.training.preprocessing.target_builders.ego_trajectory_target_builder import (
@@ -117,19 +116,25 @@ class PlanningModel(TorchModuleWrapper):
         if self.ref_free_traj:
             self.ref_free_decoder = MLPLayer(dim, 2 * dim, future_steps * 4)
         
+        # Initialize the trainable planning backbone before constructing the
+        # pretrained language model, otherwise Module.apply would overwrite the
+        # frozen MiniLM weights.
+        self.apply(self._init_weights)
+
         if self.use_llm_rl_fusion:
             self.llm_encoder = LLMSemanticEncoder(dim=dim)
+            self.llm_encoder.semantic_proj.apply(self._init_weights)
             self.hybrid_moe = HybridMoE(
                 dim=dim,
                 num_experts=num_experts,
                 num_modes=num_modes,
                 future_steps=future_steps
             )
-        
+            self.hybrid_moe.apply(self._init_weights)
+
         if self.use_semantic_constraints:
             self.constraint_module = CMDPConstraintModule(dim=dim)
-
-        self.apply(self._init_weights)
+            self.constraint_module.apply(self._init_weights)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -219,7 +224,11 @@ class PlanningModel(TorchModuleWrapper):
         if self.use_llm_rl_fusion and not ref_line_available and moe_trajectory is not None:
             trajectory = moe_trajectory.unsqueeze(1)
             bs = trajectory.shape[0]
-            probability = F.softmax(torch.randn(bs, 1, self.num_modes, device=trajectory.device), dim=-1)
+            probability = torch.full(
+                (bs, 1, self.num_modes),
+                1.0 / self.num_modes,
+                device=trajectory.device,
+            )
 
         out = {
             "trajectory": trajectory,
@@ -274,7 +283,7 @@ class PlanningModel(TorchModuleWrapper):
             )
             out["output_prediction"] = output_prediction
 
-            if trajectory is not None:
+            if ref_line_available and trajectory is not None:
                 r_padding_mask = ~data["reference_line"]["valid_mask"].any(-1)
                 probability.masked_fill_(r_padding_mask.unsqueeze(-1), -1e6)
 
@@ -297,15 +306,10 @@ class PlanningModel(TorchModuleWrapper):
                     moe_out_trajectory = torch.cat(
                         [moe_trajectory[..., :2], moe_angle.unsqueeze(-1)], dim=-1
                     )
-                    
-                    if moe_gates is not None:
-                        best_mode_idx = moe_gates.argmax(dim=-1)
-                        best_trajectory = moe_out_trajectory[torch.arange(bs), best_mode_idx]
-                    else:
-                        best_trajectory = moe_out_trajectory[:, 0]
-                    
+
+                    best_trajectory = moe_out_trajectory[:, 0]
                     out["output_trajectory"] = best_trajectory
-                    out["candidate_trajectories"] = moe_out_trajectory.unsqueeze(1).unsqueeze(1)
+                    out["candidate_trajectories"] = moe_out_trajectory.unsqueeze(1)
                 elif "output_ref_free_trajectory" in out:
                     out["output_trajectory"] = out["output_ref_free_trajectory"]
                     out["probability"] = torch.zeros(1, 0, 0)

@@ -53,6 +53,44 @@ class ConstraintSpec:
     lambda_max: float = 10.0  # clip λ to avoid runaway
 
 
+_CONSTRAINT_NAME_BY_CONFIG_KEY = {
+    "collision_threshold": "collision",
+    "speed_limit_threshold": "speed_limit",
+    "accel_limit_threshold": "accel_limit",
+    "lat_accel_threshold": "lat_accel",
+}
+
+_CONSTRAINT_DUAL_DEFAULTS = {
+    "collision": (0.5, 0.02),
+    "speed_limit": (0.2, 0.01),
+    "accel_limit": (0.1, 0.01),
+    "lat_accel": (0.1, 0.01),
+}
+
+
+def build_constraint_specs(
+    constraints_cfg: Optional[Dict[str, float]],
+) -> Optional[List[ConstraintSpec]]:
+    """Convert rl.constraints thresholds into CMDP constraint specifications."""
+    if not constraints_cfg:
+        return None
+
+    specs = []
+    for config_key, name in _CONSTRAINT_NAME_BY_CONFIG_KEY.items():
+        if config_key not in constraints_cfg:
+            continue
+        init_lambda, lambda_lr = _CONSTRAINT_DUAL_DEFAULTS[name]
+        specs.append(
+            ConstraintSpec(
+                name=name,
+                threshold=float(constraints_cfg[config_key]),
+                init_lambda=init_lambda,
+                lambda_lr=lambda_lr,
+            )
+        )
+    return specs or None
+
+
 class CMDPDualUpdater:
     """
     Maintains and updates Lagrange multipliers λ for K safety constraints.

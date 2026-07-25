@@ -448,7 +448,18 @@ def build_rl_trainer(
     buffer_capacity: int = 256,
     gamma: float = 0.99,
     gae_lambda: float = 0.95,
+    gamma_cost: float = 0.99,
+    lam_cost: float = 0.95,
+    value_coef: float = 0.5,
+    cost_value_coef: float = 0.5,
+    entropy_coef: float = 0.01,
+    max_grad_norm: float = 0.5,
+    target_kl: float = 0.01,
+    reward_weights: Optional[Dict[str, float]] = None,
+    cost_weights: Optional[Dict[str, float]] = None,
     constraint_specs: Optional[List[ConstraintSpec]] = None,
+    teacher_collect_freq: int = 5,
+    max_demo_batches: int = 100,
     checkpoint_dir: Optional[str] = None,
     device: Optional[torch.device] = None,
 ) -> "RLTrainer":
@@ -478,18 +489,32 @@ def build_rl_trainer(
         warmup_epochs=warmup_epochs,
     )
 
-    env = NuplanEnvWrapper(device=device)
+    base_model = ac_model.base_model
+    env = NuplanEnvWrapper(
+        future_steps=int(getattr(base_model, "future_steps", 80)),
+        history_steps=int(getattr(base_model, "history_steps", 21)),
+        reward_weights=reward_weights,
+        cost_weights=cost_weights,
+        device=device,
+    )
     buffer = RolloutBuffer(
         capacity=buffer_capacity,
         gamma=gamma,
+        gamma_cost=gamma_cost,
         lam=gae_lambda,
+        lam_cost=lam_cost,
         device=device,
     )
     ppo = PPOUpdater(
         model=ac_model,
         optimizer=optimizer,
         clip_eps=ppo_clip,
+        value_coef=value_coef,
+        cost_value_coef=cost_value_coef,
+        entropy_coef=entropy_coef,
+        max_grad_norm=max_grad_norm,
         ppo_epochs=ppo_epochs,
+        target_kl=target_kl,
     )
     cmdp = CMDPDualUpdater(
         constraint_specs=constraint_specs,
@@ -517,6 +542,8 @@ def build_rl_trainer(
         rollout_steps=rollout_steps,
         minibatch_size=minibatch_size,
         il_loss_weight=il_loss_weight,
+        teacher_collect_freq=teacher_collect_freq,
+        max_demo_batches=max_demo_batches,
         checkpoint_dir=checkpoint_dir,
         device=device,
     )
