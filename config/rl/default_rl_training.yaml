@@ -1,0 +1,81 @@
+# @package _global_
+# RL training configuration for PLUTO with CMDP + PPO + teacher distillation
+
+job_name: pluto_rl
+py_func: rl_train
+objective_aggregate_mode: mean
+
+defaults:
+  - override /splitter: nuplan
+  - override /model: pluto_model
+  - override /scenario_filter: training_scenarios_tiny
+  - override /custom_trainer: pluto_trainer
+  - override /lightning: custom_lightning
+
+# ── IL model configuration (inherited by base PlanningModel) ─────────────
+model:
+  use_llm_rl_fusion: true
+  num_experts: 4
+  use_semantic_constraints: true
+  use_hidden_proj: true      # required: actor_critic.py reads 'hidden' from out
+
+custom_trainer:
+  use_llm_rl_fusion: true
+  use_semantic_constraints: true
+  use_policy_distillation: true
+  moe_loss_weight: 0.5
+  constraint_loss_weight: 0.3
+  distillation_loss_weight: 1.0
+
+# ── RL-specific hyper-parameters ─────────────────────────────────────────
+rl:
+  mode: rl_with_il            # rl_only | il_only | rl_with_il
+
+  # Rollout collection
+  rollout_steps: 64           # env steps per rollout before PPO update
+  buffer_capacity: 256        # RolloutBuffer max capacity
+
+  # GAE
+  gamma: 0.99                 # reward discount
+  gamma_cost: 0.99            # cost discount
+  gae_lambda: 0.95
+
+  # PPO
+  ppo_epochs: 4               # gradient epochs per PPO update
+  ppo_clip: 0.2               # clipping epsilon ε
+  minibatch_size: 32
+  value_coef: 0.5
+  cost_value_coef: 0.5
+  entropy_coef: 0.01
+  max_grad_norm: 0.5
+  target_kl: 0.01             # KL early-stop threshold
+
+  # Distillation
+  use_teacher: true           # use the same base model as teacher
+  il_loss_weight: 0.1         # weight of IL loss in PPO update
+  teacher_collect_freq: 5     # refresh teacher demos every N epochs
+  max_demo_batches: 100
+
+  # Checkpointing
+  checkpoint_dir:             # leave empty → uses cfg.output_dir
+
+  # CMDP constraint budgets (upper bounds on expected per-step cost)
+  constraints:
+    collision_threshold: 0.05
+    speed_limit_threshold: 0.10
+    accel_limit_threshold: 0.15
+    lat_accel_threshold: 0.15
+
+  # Reward weights (NuplanEnvWrapper)
+  reward_weights:
+    progress: 1.0
+    on_route: 0.5
+    comfort: 0.3
+    goal_proximity: 0.5
+
+  # Cost weights (NuplanEnvWrapper)
+  cost_weights:
+    collision: 1.0
+    speed_limit: 0.5
+    accel_limit: 0.3
+    lat_accel: 0.3

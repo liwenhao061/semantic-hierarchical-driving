@@ -1,0 +1,7 @@
+_target_: src.models.pluto.pluto_trainer.LightningTrainer
+use_llm_rl_fusion: false
+use_semantic_constraints: false
+use_policy_distillation: false
+moe_loss_weight: 0.5
+constraint_loss_weight: 0.3
+distillation_loss_weight: 1.0

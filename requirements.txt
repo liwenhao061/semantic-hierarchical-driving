@@ -1,0 +1,21 @@
+# Project overlay for an existing nuPlan Python 3.9 environment.
+# CUDA-specific PyTorch, torchvision, and NATTEN versions are installed by
+# script/setup_env.sh. Keep nuPlan's Hydra/OmegaConf and scientific stack.
+
+# Model and training
+timm==1.0.27
+pytorch-lightning==2.0.1
+torchmetrics==0.10.2
+numba==0.60.0
+einops==0.8.2
+
+# Experiment logging and CLI output
+tensorboard==2.20.0
+wandb==0.14.2
+rich==13.3.4
+
+# Local semantic encoder
+transformers==4.30.2
+tokenizers==0.13.3
+huggingface_hub==0.19.4
+sentencepiece==0.2.2

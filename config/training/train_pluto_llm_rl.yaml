@@ -1,0 +1,28 @@
+# @package _global_
+job_name: pluto_llm_rl
+py_func: train
+objective_aggregate_mode: mean
+
+defaults:
+        - override /data_augmentation:
+                  - contrastive_scenario_generator
+        - override /splitter: nuplan
+        - override /model: pluto_model
+        - override /scenario_filter: training_scenarios_tiny
+        - override /custom_trainer: pluto_trainer
+        - override /lightning: custom_lightning
+
+model:
+  use_llm_rl_fusion: true
+  num_experts: 4
+  use_semantic_constraints: true
+  use_hidden_proj: true
+
+custom_trainer:
+  use_llm_rl_fusion: true
+  use_semantic_constraints: true
+  use_policy_distillation: true
+  moe_loss_weight: 0.5
+  constraint_loss_weight: 0.3
+  distillation_loss_weight: 1.0
+
