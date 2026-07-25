@@ -79,7 +79,9 @@ The tested setup uses Python 3.9, CUDA 11.8, PyTorch 2.0.1,
 PyTorch Lightning 2.0.1, and NATTEN 0.14.6. Keep the non-PyTorch
 dependencies installed by nuPlan-devkit, especially its Hydra/OmegaConf
 versions; upgrading those packages independently can break nuPlan config
-composition.
+composition. The pinned `requirements.txt` is a project overlay for an
+existing nuPlan environment, not a standalone replacement for the nuPlan
+dependency stack.
 
 ```bash
 # Preserve the original nuPlan environment and upgrade only an isolated clone.
@@ -293,19 +295,17 @@ safe_traj = CMDPDualUpdater.shield_trajectory(trajectory, semantic_constraints)
 
 ## Key dependencies
 
-```text
-Python 3.9
-torch 2.0.1+cu118
-torchvision 0.15.2+cu118
-pytorch-lightning 2.0.1
-torchmetrics 0.10.2
-natten 0.14.6 (CUDA build)
-transformers 4.30.2
-nuplan-devkit with its pinned hydra-core 1.1.0rc1 / omegaconf 2.1.0rc1
-```
+- Python 3.9 and CUDA 11.8
+- PyTorch 2.0.1+cu118 and torchvision 0.15.2+cu118
+- PyTorch Lightning 2.0.1, torchmetrics 0.10.2, and timm 1.0.27
+- NATTEN 0.14.6, built from source with CUDA support
+- Transformers 4.30.2 for the local MiniLM semantic encoder
+- nuPlan-devkit with its compatible Hydra/OmegaConf stack
 
-------
+Exact project-overlay versions are pinned in `requirements.txt`; the
+CUDA-specific packages are installed by `script/setup_env.sh`.
 
+---
 
 
 ## Release Status

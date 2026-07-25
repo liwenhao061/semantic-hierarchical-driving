@@ -5,7 +5,7 @@ python -m pip install \
   torch==2.0.1 torchvision==0.15.2 \
   --index-url https://download.pytorch.org/whl/cu118
 python -m pip install -r requirements.txt
-python -m pip install --no-deps ninja
+python -m pip install --no-deps ninja==1.13.0
 
 if ! command -v nvcc >/dev/null 2>&1 \
   || ! nvcc --version | grep -q "release 11.8" \
