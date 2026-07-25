@@ -310,12 +310,34 @@ nuplan-devkit with its pinned hydra-core 1.1.0rc1 / omegaconf 2.1.0rc1
 
 ## Release Status
 
-The code is under cleaning and will be released gradually.
+### Current release: Pre-API research code
+
+This release contains the fully local and reproducible research pipeline:
+
+- supervised IL baseline training;
+- local MiniLM semantic encoding, MoE, and policy distillation;
+- PPO + CMDP training with teacher distillation; and
+- nuPlan simulation and open-loop evaluation.
+
+No external OpenAI, Anthropic, or other hosted LLM inference API is used.
+The semantic encoder runs
+`sentence-transformers/all-MiniLM-L6-v2` locally after its weights have
+been downloaded once. API credentials are therefore not required for the
+current release.
 
 - [x] improve docs
-- [x] training code
-- [x] simulation / evaluation code
+- [x] Pre-API training and RL code
+- [x] nuPlan simulation / evaluation code
 - [ ] checkpoints and pretrained weights
+
+### Planned API-enabled version
+
+An optional API-assisted version is planned as a separate future release.
+It will add hosted-LLM semantic reasoning and constraint generation behind
+explicit configuration, together with provider setup, credential handling,
+response caching, offline fallbacks, and reproducibility notes. Those
+components are intentionally **not included** in this Pre-API release, and
+no release date is promised here.
 
 ------
 
